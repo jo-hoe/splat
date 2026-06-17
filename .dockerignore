@@ -1,0 +1,17 @@
+.git
+.github
+.golangci.yaml
+.editorconfig
+.gitignore
+.vscode
+.idea
+README.md
+DESIGN.md
+LICENSE
+data/
+cache/
+tmp/
+*.test
+*.out
+coverage.txt
+config.yaml

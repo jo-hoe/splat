@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>{{.Title}}</title>
+  <!-- TODO: pin SRI hashes on first deploy -->
+  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2.0.6/css/pico.min.css" crossorigin="anonymous"/>
+  <link rel="stylesheet" href="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.css" crossorigin="anonymous"/>
+  <link rel="stylesheet" href="/static/app.css"/>
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js" crossorigin="anonymous" defer></script>
+  <script src="https://unpkg.com/cropperjs@1.6.2/dist/cropper.min.js" crossorigin="anonymous" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header>
+    <hgroup>
+      <h2>splat</h2>
+      <p>Quick &amp; dirty image edits</p>
+    </hgroup>
+    <fieldset id="mode-toggle" role="radiogroup" aria-label="Save mode">
+      <label>
+        <input type="radio" name="mode" value="inplace" checked/>
+        In-place
+      </label>
+      <label>
+        <input type="radio" name="mode" value="copy"/>
+        Copy
+      </label>
+    </fieldset>
+  </header>
+
+  <main id="editor" aria-live="polite">
+    <p class="placeholder">Click an image below to edit.</p>
+  </main>
+
+  <section id="strip"
+           hx-get="/strip"
+           hx-trigger="load"
+           hx-swap="innerHTML"
+           aria-label="Image preview strip">
+  </section>
+
+  <aside id="toasts" role="status" aria-live="polite"></aside>
+
+  <dialog id="confirm-dialog">
+    <article>
+      <header>
+        <h3 id="confirm-title">Confirm</h3>
+      </header>
+      <p id="confirm-message"></p>
+      <footer>
+        <button id="confirm-cancel" class="secondary">Cancel</button>
+        <button id="confirm-ok">OK</button>
+      </footer>
+    </article>
+  </dialog>
+</body>
+</html>

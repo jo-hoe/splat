@@ -1,0 +1,28 @@
+# Build
+/splat
+/splat.exe
+/bin/
+/dist/
+/out/
+
+# Local data
+/data/
+/cache/
+/tmp/
+
+# Editor / IDE
+.vscode/
+.idea/
+.claude/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go test
+*.test
+*.out
+coverage.txt
+coverage.html
+/photos/

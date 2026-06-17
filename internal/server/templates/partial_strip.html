@@ -1,0 +1,20 @@
+{{- range .Entries -}}
+<div class="thumb"
+     hx-get="/editor/{{.KeyURL}}"
+     hx-target="#editor"
+     hx-swap="innerHTML"
+     title="{{.Key}}"
+     role="button"
+     tabindex="0"
+     data-key="{{.Key}}">
+  <img src="/thumb/{{.KeyURL}}" alt="{{.Basename}}" loading="lazy" height="{{.HeightPx}}"/>
+</div>
+{{- end -}}
+{{- if .HasMore -}}
+<div class="strip-loader"
+     hx-get="/strip?offset={{.NextOffset}}&limit={{.Limit}}"
+     hx-trigger="revealed"
+     hx-swap="outerHTML"
+     aria-hidden="true">
+</div>
+{{- end -}}

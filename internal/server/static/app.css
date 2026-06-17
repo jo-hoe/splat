@@ -1,0 +1,168 @@
+/* Splat application styles. Layered on top of Pico. */
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: grid;
+  grid-template-rows: auto 1fr 240px;
+  height: 100vh;
+  overflow: hidden;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--pico-muted-border-color);
+  margin: 0;
+}
+header hgroup {
+  margin: 0;
+}
+header h2 {
+  margin: 0;
+}
+
+#mode-toggle {
+  display: inline-flex;
+  gap: 1rem;
+  margin: 0;
+}
+#mode-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+}
+
+main#editor {
+  overflow: auto;
+  padding: 1rem;
+}
+main#editor .placeholder {
+  text-align: center;
+  color: var(--pico-muted-color);
+  margin-top: 4rem;
+}
+
+#editor-pane > header h3 {
+  margin: 0 0 0.5rem 0;
+}
+
+.cropper-wrap {
+  max-width: 100%;
+  max-height: 60vh;
+  margin-bottom: 0.75rem;
+}
+.cropper-wrap img {
+  display: block;
+  max-width: 100%;
+}
+
+fieldset.ratios,
+fieldset.ops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0 0 0.5rem 0;
+  padding: 0.5rem;
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: 0.5rem;
+}
+fieldset.ratios button,
+fieldset.ops button {
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.9rem;
+}
+.ratio-btn.active {
+  background: var(--pico-primary);
+  color: var(--pico-primary-inverse);
+}
+#ratio-custom {
+  width: 6rem;
+  margin: 0;
+}
+
+section#strip {
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  padding: 0.5rem;
+  border-top: 1px solid var(--pico-muted-border-color);
+  background: var(--pico-card-background-color);
+}
+.thumb {
+  display: inline-block;
+  height: calc(100% - 1rem);
+  margin-right: 0.5rem;
+  cursor: pointer;
+  vertical-align: top;
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+.thumb img {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+.thumb:focus,
+.thumb:hover {
+  outline: 2px solid var(--pico-primary);
+  outline-offset: 2px;
+}
+.thumb.active {
+  outline: 3px solid var(--pico-primary);
+}
+.strip-loader {
+  display: inline-block;
+  width: 1px;
+  height: 100%;
+}
+
+#toasts {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+  z-index: 1000;
+  max-width: 24rem;
+}
+.toast {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--pico-card-background-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-left: 4px solid var(--pico-muted-color);
+}
+.toast-success { border-left-color: #2ecc71; }
+.toast-error   { border-left-color: #e74c3c; }
+.toast-undo    { border-left-color: #f39c12; }
+.toast button {
+  margin: 0;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.error {
+  border-left: 4px solid #e74c3c;
+  padding: 0.5rem 1rem;
+  background: var(--pico-card-background-color);
+}
+.success {
+  border-left: 4px solid #2ecc71;
+  padding: 0.5rem 1rem;
+}

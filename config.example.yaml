@@ -1,0 +1,24 @@
+server:
+  port: 8080
+  shutdown_timeout: 10s
+
+source:
+  type: local                      # "local" | "s3"
+  local:
+    root: /data
+  # s3:
+  #   bucket: my-bucket
+  #   prefix: photos/
+  #   region: eu-central-1
+  #   auth: static
+  #   access_key: ${AWS_ACCESS_KEY_ID}
+  #   secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+
+editing:
+  copy_suffix: -edited
+  jpeg_quality: 90
+
+thumbnails:
+  cache_dir: /cache
+  height_px: 200
+  cache_max_bytes: 1073741824        # 1 GiB

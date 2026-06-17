@@ -1,0 +1,6 @@
+<aside role="alert" class="error">
+  <strong>Error:</strong> {{.Message}}
+  {{if .NeedsReload}}
+    <button type="button" onclick="location.reload()">Reload</button>
+  {{end}}
+</aside>

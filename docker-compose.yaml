@@ -1,0 +1,17 @@
+services:
+  splat:
+    image: splat:latest
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./photos:/data:rw
+      - ./cache:/cache:rw
+      - ./config.yaml:/etc/splat/config.yaml:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/splat", "healthcheck"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
