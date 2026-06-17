@@ -1,0 +1,69 @@
+# Dependabot configuration.
+#
+# Reference: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Three ecosystems track this repo: Go modules, GitHub Actions, and the
+# Docker base image used by the production container. Each gets a weekly
+# Monday morning check to keep PR noise predictable; security updates from
+# Dependabot still arrive immediately regardless of `schedule` and ignore
+# the open-PR limits.
+version: 2
+updates:
+  # Go modules — bumps in go.mod / go.sum.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - go
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # Group AWS SDK v2 modules together — they release in lockstep and
+      # bumping them one PR at a time creates a needless review queue.
+      aws-sdk:
+        patterns:
+          - "github.com/aws/aws-sdk-go-v2*"
+          - "github.com/aws/smithy-go"
+      # Group golang.org/x/* the same way.
+      golang-x:
+        patterns:
+          - "golang.org/x/*"
+
+  # GitHub Actions used by .github/workflows/*.yaml.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: ci
+      include: scope
+
+  # Production base image (golang build stage + distroless runtime stage).
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - docker
+    commit-message:
+      prefix: chore
+      include: scope
