@@ -1,5 +1,7 @@
 # ai
-.playwright-mcp
+.playwright-mcp/
+/*.png
+/*.jpg
 
 # secrets
 .env
