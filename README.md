@@ -31,6 +31,44 @@ See [config.example.yaml](config.example.yaml) for the full schema. Highlights:
 - Recursive walk, alphabetical, allowlist `.jpg`, `.jpeg`, `.png`, `.webp`.
 - `${ENV_VAR}` interpolation in any string field.
 
+### AWS S3 permissions
+
+The IAM principal used by splat needs the following permissions. Replace
+`my-bucket` with your bucket name.
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket",
+                "s3:GetObject",
+                "s3:HeadObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::my-bucket",
+                "arn:aws:s3:::my-bucket/*"
+            ]
+        }
+    ]
+}
+```
+
+| Action | Used for |
+|---|---|
+| `s3:ListBucket` | Listing images in the preview strip |
+| `s3:GetObject` | Loading images for editing and thumbnail generation |
+| `s3:HeadObject` | Optimistic concurrency check and existence probe |
+| `s3:PutObject` | Saving cropped / rotated images |
+| `s3:DeleteObject` | Deleting images |
+
+If you only need **read-only** access (browse + download, no edits or deletes),
+you can restrict to `s3:ListBucket`, `s3:GetObject`, and `s3:HeadObject`.
+
 ## Documented surprises
 
 These behaviors are intentional but worth knowing about up front:
