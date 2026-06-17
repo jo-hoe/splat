@@ -123,16 +123,17 @@ ci: vet test lint ## Same checks CI runs (vet + race tests + lint)
 # ----------------------------------------------------------------------------
 # Docker.
 
+# CURDIR_FWD normalises the working directory to forward slashes so Docker
+# volume-mount paths work on Windows (Git Bash / msys2) as well as macOS /
+# Linux. Docker always wants forward-slash paths regardless of host OS.
+CURDIR_FWD := $(subst \,/,$(CURDIR))
+
 docker-build: ## Build the production container image
 	docker build -t $(DOCKER_IMAGE) .
 
 docker-run: ## Run the container with the documented mounts
 	@mkdir -p $(PHOTOS_DIR) $(CACHE_DIR)
-	docker run --rm -p 8080:8080 \
-	    -v "$(CURDIR)/$(PHOTOS_DIR):/data:rw" \
-	    -v "$(CURDIR)/$(CACHE_DIR):/cache:rw" \
-	    -v "$(CURDIR)/$(CONFIG):/etc/splat/config.yaml:ro" \
-	    $(DOCKER_IMAGE)
+	docker run --rm -p 8080:8080 -v "$(CURDIR_FWD)/$(PHOTOS_DIR):/data:rw" -v "$(CURDIR_FWD)/$(CACHE_DIR):/cache:rw" -v "$(CURDIR_FWD)/$(CONFIG):/etc/splat/config.yaml:ro" $(DOCKER_IMAGE)
 
 # ----------------------------------------------------------------------------
 # Cleanup.
