@@ -45,7 +45,6 @@ The IAM principal used by splat needs the following permissions. Replace
             "Action": [
                 "s3:ListBucket",
                 "s3:GetObject",
-                "s3:HeadObject",
                 "s3:PutObject",
                 "s3:DeleteObject"
             ],
@@ -61,13 +60,12 @@ The IAM principal used by splat needs the following permissions. Replace
 | Action | Used for |
 |---|---|
 | `s3:ListBucket` | Listing images in the preview strip |
-| `s3:GetObject` | Loading images for editing and thumbnail generation |
-| `s3:HeadObject` | Optimistic concurrency check and existence probe |
+| `s3:GetObject` | Loading images for editing, thumbnail generation, and existence probes (`HeadObject` authorizes against `s3:GetObject`) |
 | `s3:PutObject` | Saving cropped / rotated images |
 | `s3:DeleteObject` | Deleting images |
 
 If you only need **read-only** access (browse + download, no edits or deletes),
-you can restrict to `s3:ListBucket`, `s3:GetObject`, and `s3:HeadObject`.
+you can restrict to `s3:ListBucket` and `s3:GetObject`.
 
 ## Documented surprises
 
