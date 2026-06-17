@@ -151,7 +151,7 @@ func runHealthcheck(args []string) error {
 	if err != nil {
 		return fmt.Errorf("get %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	// Drain body so the connection can be reused (immaterial for a
 	// one-shot probe but cheap and idiomatic).
 	_, _ = io.Copy(io.Discard, resp.Body)

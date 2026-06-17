@@ -144,7 +144,7 @@ func (l *LocalSource) Put(ctx context.Context, key string, r io.Reader, _ string
 		return err
 	}
 	parent := filepath.Dir(abs)
-	if err := os.MkdirAll(parent, 0o755); err != nil {
+	if err := os.MkdirAll(parent, 0o750); err != nil {
 		return err
 	}
 	tmp, err := os.CreateTemp(parent, filepath.Base(abs)+".tmp.*")

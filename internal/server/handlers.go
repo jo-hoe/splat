@@ -54,10 +54,10 @@ type stripView struct {
 
 // stripEntry is one rendered thumbnail.
 type stripEntry struct {
-	Key       string
-	KeyURL    string
-	Basename  string
-	HeightPx  int
+	Key      string
+	KeyURL   string
+	Basename string
+	HeightPx int
 }
 
 // handleStrip renders one batch of preview thumbnails.
@@ -147,7 +147,7 @@ func (s *Server) handleImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	if meta.ContentType != "" {
 		w.Header().Set("Content-Type", meta.ContentType)
 	}
@@ -397,7 +397,7 @@ func (s *Server) fetchOriginal(ctx context.Context, key string) ([]byte, source.
 	if err != nil {
 		return nil, meta, http.StatusInternalServerError, fmt.Errorf("get: %w", err)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	raw, err := io.ReadAll(rc)
 	if err != nil {
 		return nil, meta, http.StatusInternalServerError, fmt.Errorf("read: %w", err)
@@ -443,8 +443,8 @@ func (s *Server) renderError(w http.ResponseWriter, status int, msg string) {
 // "reload required" message.
 func (s *Server) renderConflict(w http.ResponseWriter) {
 	view := map[string]any{
-		"Message":      "This file was modified elsewhere. Reload to continue.",
-		"NeedsReload":  true,
+		"Message":     "This file was modified elsewhere. Reload to continue.",
+		"NeedsReload": true,
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusConflict)

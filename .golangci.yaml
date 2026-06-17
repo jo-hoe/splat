@@ -28,6 +28,18 @@ linters:
           arguments:
             - "checkPrivateReceivers"
             - "disableStutteringCheck"
+    gosec:
+      # G304: "Potential file inclusion via variable" — fires on any os.Open /
+      #       os.ReadFile with a non-literal path. We canonicalize keys via
+      #       source.CleanKey and verify the resolved path stays under the
+      #       configured root before opening, which is the correct mitigation;
+      #       silencing the lint is appropriate for this codebase.
+      # G705: "XSS via taint analysis" — meant for HTML responses. We use it
+      #       to write JPEG/PNG bytes with an explicit binary Content-Type;
+      #       there is no HTML execution context, so the warning is spurious.
+      excludes:
+        - G304
+        - G705
 
   exclusions:
     rules:

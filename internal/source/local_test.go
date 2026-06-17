@@ -54,10 +54,10 @@ func TestLocalSource_List_FilteringAndSort(t *testing.T) {
 	dir := t.TempDir()
 	mustWrite(t, dir, "z.png", []byte("z"))
 	mustWrite(t, dir, "a.jpg", []byte("a"))
-	mustWrite(t, dir, "b.gif", []byte("b"))   // disallowed
-	mustWrite(t, dir, "c.txt", []byte("c"))   // disallowed
-	mustWrite(t, dir, "m.JPEG", []byte("m"))  // mixed case ext, allowed
-	mustWrite(t, dir, "n.WEBP", []byte("n"))  // mixed case ext, allowed
+	mustWrite(t, dir, "b.gif", []byte("b"))  // disallowed
+	mustWrite(t, dir, "c.txt", []byte("c"))  // disallowed
+	mustWrite(t, dir, "m.JPEG", []byte("m")) // mixed case ext, allowed
+	mustWrite(t, dir, "n.WEBP", []byte("n")) // mixed case ext, allowed
 
 	src, err := NewLocalSource(dir)
 	if err != nil {

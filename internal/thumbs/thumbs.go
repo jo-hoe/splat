@@ -32,7 +32,7 @@ const jpegQuality = 85
 
 // Options configures a Cache.
 type Options struct {
-	// Dir is the cache directory. It will be created with mode 0o755 if
+	// Dir is the cache directory. It will be created with mode 0o750 if
 	// it does not exist.
 	Dir string
 	// HeightPx is the target thumbnail height in pixels; width preserves
@@ -58,7 +58,7 @@ type Cache struct {
 }
 
 // New creates a Cache with the given options. Dir is created with mode
-// 0o755 if it does not exist; an error is returned if Dir exists but
+// 0o750 if it does not exist; an error is returned if Dir exists but
 // is not a directory or any option is invalid.
 func New(opts Options) (*Cache, error) {
 	if err := validateOptions(opts); err != nil {
@@ -97,7 +97,7 @@ func ensureDir(dir string) error {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("stat cache dir: %w", err)
 		}
-		if mkErr := os.MkdirAll(dir, 0o755); mkErr != nil {
+		if mkErr := os.MkdirAll(dir, 0o750); mkErr != nil {
 			return fmt.Errorf("create cache dir: %w", mkErr)
 		}
 		return nil
