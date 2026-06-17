@@ -37,8 +37,9 @@ func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 // handleIndex renders the full app shell.
 func (s *Server) handleIndex(w http.ResponseWriter, _ *http.Request) {
 	data := map[string]any{
-		"Title":    "splat",
-		"HeightPx": s.cfg.Thumbnails.HeightPx,
+		"Title":         "splat",
+		"HeightPx":      s.cfg.Thumbnails.HeightPx,
+		"PrefetchCount": s.cfg.Editing.PrefetchCount,
 	}
 	s.render(w, "index.html", data)
 }

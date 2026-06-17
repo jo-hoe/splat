@@ -1,7 +1,49 @@
 <article id="editor-pane" data-key="{{.Key}}" data-hash="{{.Hash}}">
-  <header>
-    <h3 title="{{.Key}}">{{.Basename}}</h3>
-  </header>
+  <div class="editor-header">
+    <span class="editor-filename" title="{{.Key}}">{{.Basename}}</span>
+    <div class="editor-ops-quick">
+      <button type="button"
+              hx-post="/apply/{{.KeyURL}}"
+              hx-target="#editor"
+              hx-swap="innerHTML"
+              hx-vals='js:{op:"rotate-ccw", mode:splat.getMode(), hash:splat.getHash()}'
+              title="Rotate 90° counter-clockwise">↺</button>
+      <button type="button"
+              hx-post="/apply/{{.KeyURL}}"
+              hx-target="#editor"
+              hx-swap="innerHTML"
+              hx-vals='js:{op:"rotate-cw", mode:splat.getMode(), hash:splat.getHash()}'
+              title="Rotate 90° clockwise">↻</button>
+      <button type="button"
+              hx-post="/apply/{{.KeyURL}}"
+              hx-target="#editor"
+              hx-swap="innerHTML"
+              hx-vals='js:{op:"rotate-180", mode:splat.getMode(), hash:splat.getHash()}'
+              title="Rotate 180°">180°</button>
+      <button type="button"
+              hx-post="/apply/{{.KeyURL}}"
+              hx-target="#editor"
+              hx-swap="innerHTML"
+              hx-vals='js:{op:"flip-h", mode:splat.getMode(), hash:splat.getHash()}'
+              title="Flip horizontal">⇄</button>
+      <button type="button"
+              hx-post="/apply/{{.KeyURL}}"
+              hx-target="#editor"
+              hx-swap="innerHTML"
+              hx-vals='js:{op:"flip-v", mode:splat.getMode(), hash:splat.getHash()}'
+              title="Flip vertical">⇅</button>
+      <button type="button"
+              class="editor-save-btn primary"
+              id="save-btn"
+              title="Save crop (Enter)">Save</button>
+      <button type="button"
+              class="editor-delete-btn contrast"
+              id="delete-btn"
+              data-key="{{.Key}}"
+              data-key-url="{{.KeyURL}}"
+              title="Delete image">🗑</button>
+    </div>
+  </div>
 
   <div class="cropper-wrap">
     <img id="crop-target"
@@ -11,6 +53,7 @@
   </div>
 
   <form id="apply-form"
+        class="editor-toolbar"
         hx-post="/apply/{{.KeyURL}}"
         hx-target="#editor"
         hx-swap="innerHTML">
@@ -22,53 +65,20 @@
     <input type="hidden" name="w" id="apply-w"/>
     <input type="hidden" name="h" id="apply-h"/>
 
-    <fieldset class="ratios" role="radiogroup" aria-label="Crop aspect ratio">
+    <div class="ratios" role="radiogroup" aria-label="Crop aspect ratio">
       {{range $i, $r := .Ratios}}
       <button type="button"
               class="ratio-btn"
               data-ratio="{{$r.Value}}"
               data-index="{{$i}}">{{$r.Label}}</button>
       {{end}}
-      <input type="text"
-             id="ratio-custom"
-             placeholder="W:H"
-             pattern="\d{1,4}:\d{1,4}"
-             aria-label="Custom aspect ratio"/>
-      <button type="button" id="ratio-custom-apply">Set</button>
-    </fieldset>
-
-    <fieldset class="ops" aria-label="Operations">
-      <button type="submit" class="primary" id="apply-btn">Apply crop</button>
-      <button type="button"
-              hx-post="/apply/{{.KeyURL}}"
-              hx-target="#editor"
-              hx-swap="innerHTML"
-              hx-vals='js:{op:"rotate-ccw", mode:splat.getMode(), hash:splat.getHash()}'>↺ 90°</button>
-      <button type="button"
-              hx-post="/apply/{{.KeyURL}}"
-              hx-target="#editor"
-              hx-swap="innerHTML"
-              hx-vals='js:{op:"rotate-cw", mode:splat.getMode(), hash:splat.getHash()}'>↻ 90°</button>
-      <button type="button"
-              hx-post="/apply/{{.KeyURL}}"
-              hx-target="#editor"
-              hx-swap="innerHTML"
-              hx-vals='js:{op:"rotate-180", mode:splat.getMode(), hash:splat.getHash()}'>180°</button>
-      <button type="button"
-              hx-post="/apply/{{.KeyURL}}"
-              hx-target="#editor"
-              hx-swap="innerHTML"
-              hx-vals='js:{op:"flip-h", mode:splat.getMode(), hash:splat.getHash()}'>Flip ↔</button>
-      <button type="button"
-              hx-post="/apply/{{.KeyURL}}"
-              hx-target="#editor"
-              hx-swap="innerHTML"
-              hx-vals='js:{op:"flip-v", mode:splat.getMode(), hash:splat.getHash()}'>Flip ↕</button>
-      <button type="button"
-              class="contrast"
-              id="delete-btn"
-              data-key="{{.Key}}"
-              data-key-url="{{.KeyURL}}">Delete</button>
-    </fieldset>
+      <span class="ratio-custom-group">
+        <input type="text"
+               id="ratio-custom"
+               placeholder="W:H"
+               pattern="\d{1,4}:\d{1,4}"
+               aria-label="Custom aspect ratio"/>
+      </span>
+    </div>
   </form>
 </article>

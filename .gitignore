@@ -1,3 +1,12 @@
+# ai
+.playwright-mcp
+
+# secrets
+.env
+.env.local
+.env.*.local
+config.yaml
+
 # Build
 /splat
 /splat.exe

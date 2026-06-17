@@ -17,6 +17,7 @@ source:
 editing:
   copy_suffix: -edited
   jpeg_quality: 90
+  prefetch_count: 5                  # images to prefetch ahead in the strip (0-50)
 
 thumbnails:
   cache_dir: /cache

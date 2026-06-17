@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="splat-prefetch-count" content="{{.PrefetchCount}}"/>
   <title>{{.Title}}</title>
   <!-- TODO: pin SRI hashes on first deploy -->
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2.0.6/css/pico.min.css" crossorigin="anonymous"/>
@@ -14,20 +15,15 @@
 </head>
 <body>
   <header>
-    <hgroup>
-      <h2>splat</h2>
-      <p>Quick &amp; dirty image edits</p>
-    </hgroup>
-    <fieldset id="mode-toggle" role="radiogroup" aria-label="Save mode">
-      <label>
-        <input type="radio" name="mode" value="inplace" checked/>
-        In-place
-      </label>
-      <label>
-        <input type="radio" name="mode" value="copy"/>
-        Copy
-      </label>
-    </fieldset>
+    <span class="header-brand">splat</span>
+    <label class="header-mode-label">
+      <input type="radio" name="mode" id="mode-inplace" value="inplace" checked/>
+      In-place
+    </label>
+    <label class="header-mode-label">
+      <input type="radio" name="mode" id="mode-copy" value="copy"/>
+      Copy
+    </label>
   </header>
 
   <main id="editor" aria-live="polite">
