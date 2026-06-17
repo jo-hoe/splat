@@ -1,9 +1,8 @@
 # splat — Makefile
 #
-# Cross-platform: works under GNU Make on Windows (Git Bash, WSL, msys2),
-# macOS, and Linux. The only assumed shell is bash; the only assumed external
-# tools are go and docker. Optional tools (golangci-lint, gofumpt) are
-# detected at runtime and the relevant target degrades gracefully when absent.
+# Cross-platform: works under GNU Make on Windows (cmd.exe, Git Bash, WSL,
+# msys2), macOS, and Linux. Detects the host OS and adjusts the shell and
+# portable commands accordingly — no manual setup required.
 #
 # Targets (run `make help` for the live list):
 #
@@ -24,15 +23,25 @@
 #   help           — print the target list
 
 # ----------------------------------------------------------------------------
-# Cross-platform shell setup.
-#
-# `SHELL := bash` works on Linux/macOS as long as bash is on PATH; on Windows
-# the user is expected to run make from Git Bash, WSL, or msys2 (which is also
-# what most Windows Go contributors already do). We prefer this to per-target
-# OS detection because every target stays a single recipe rather than a Windows
-# branch + a Unix branch.
-SHELL := bash
-.SHELLFLAGS := -eu -o pipefail -c
+# OS detection and portable shell / command setup.
+
+ifeq ($(OS),Windows_NT)
+  # Running under cmd.exe or PowerShell.
+  SHELL     := cmd.exe
+  .SHELLFLAGS := /C
+  # mkdir on cmd.exe creates intermediate dirs by default and silently
+  # ignores already-existing directories when 2>nul is appended.
+  MKDIR_P   := mkdir 2>nul ||:
+  RM_RF     := rmdir /S /Q
+  # Forward-slash path used by Docker volume mounts (works on all engines).
+  CURDIR_FWD := $(subst \,/,$(CURDIR))
+else
+  SHELL     := bash
+  .SHELLFLAGS := -eu -o pipefail -c
+  MKDIR_P   := mkdir -p
+  RM_RF     := rm -rf
+  CURDIR_FWD := $(CURDIR)
+endif
 
 # Paths and naming.
 PKG          := github.com/jo-hoe/splat
@@ -69,7 +78,7 @@ help: ## Print this help.
 # Build & run.
 
 build: ## Compile the splat binary into ./bin
-	@mkdir -p $(BIN_DIR)
+	$(MKDIR_P) $(BIN_DIR)
 	CGO_ENABLED=0 go build $(GO_BUILDFLAGS) -o $(BIN) ./cmd/splat
 	@echo "built $(BIN)"
 
@@ -96,6 +105,14 @@ cover-html: cover ## Generate coverage.html (open it manually)
 vet: ## go vet ./...
 	go vet ./...
 
+ifeq ($(OS),Windows_NT)
+lint: ## Run golangci-lint if installed; print a note otherwise
+	where golangci-lint >nul 2>&1 && golangci-lint run || echo golangci-lint not installed
+
+fmt: ## gofmt -w; also gofumpt if installed
+	gofmt -w .
+	where gofumpt >nul 2>&1 && gofumpt -w . || echo gofumpt not installed
+else
 lint: ## Run golangci-lint if installed; print a note otherwise
 	@if command -v golangci-lint >/dev/null 2>&1 ; then \
 	    golangci-lint run ; \
@@ -110,6 +127,7 @@ fmt: ## gofmt -w; also gofumpt if installed
 	else \
 	    echo "gofumpt not installed; skipping (install: go install mvdan.cc/gofumpt@latest)" ; \
 	fi
+endif
 
 tidy: ## go mod tidy && go mod verify
 	go mod tidy
@@ -123,23 +141,18 @@ ci: vet test lint ## Same checks CI runs (vet + race tests + lint)
 # ----------------------------------------------------------------------------
 # Docker.
 
-# CURDIR_FWD normalises the working directory to forward slashes so Docker
-# volume-mount paths work on Windows (Git Bash / msys2) as well as macOS /
-# Linux. Docker always wants forward-slash paths regardless of host OS.
-CURDIR_FWD := $(subst \,/,$(CURDIR))
-
 docker-build: ## Build the production container image
 	docker build -t $(DOCKER_IMAGE) .
 
 docker-run: ## Run the container with the documented mounts
-	@mkdir -p $(PHOTOS_DIR) $(CACHE_DIR)
+	$(MKDIR_P) $(PHOTOS_DIR) $(CACHE_DIR)
 	docker run --rm -p 8080:8080 -v "$(CURDIR_FWD)/$(PHOTOS_DIR):/data:rw" -v "$(CURDIR_FWD)/$(CACHE_DIR):/cache:rw" -v "$(CURDIR_FWD)/$(CONFIG):/etc/splat/config.yaml:ro" $(DOCKER_IMAGE)
 
 # ----------------------------------------------------------------------------
 # Cleanup.
 
 clean: ## Remove build outputs and coverage artifacts
-	rm -rf $(BIN_DIR) coverage.out coverage.html
+	$(RM_RF) $(BIN_DIR) coverage.out coverage.html
 
 # ----------------------------------------------------------------------------
 # Optional dev tools (informational).
