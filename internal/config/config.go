@@ -61,9 +61,10 @@ type S3Config struct {
 
 // EditingConfig configures save / copy semantics for edited images.
 type EditingConfig struct {
-	CopySuffix   string `yaml:"copy_suffix"`
-	JPEGQuality  int    `yaml:"jpeg_quality"`
-	PrefetchCount int   `yaml:"prefetch_count"`
+	CopySuffix        string `yaml:"copy_suffix"`
+	JPEGQuality       int    `yaml:"jpeg_quality"`
+	PrefetchCount     int    `yaml:"prefetch_count"`
+	DeleteUndoSeconds int    `yaml:"delete_undo_seconds"`
 }
 
 // ThumbnailsConfig configures the on-disk thumbnail cache.
@@ -121,6 +122,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Editing.PrefetchCount == 0 {
 		c.Editing.PrefetchCount = 5
+	}
+	if c.Editing.DeleteUndoSeconds == 0 {
+		c.Editing.DeleteUndoSeconds = 5
 	}
 }
 
@@ -201,6 +205,9 @@ func (c *Config) validateEditing() error {
 	}
 	if c.Editing.PrefetchCount < 0 || c.Editing.PrefetchCount > 50 {
 		return fmt.Errorf("editing.prefetch_count: %d not in [0,50]", c.Editing.PrefetchCount)
+	}
+	if c.Editing.DeleteUndoSeconds < 1 || c.Editing.DeleteUndoSeconds > 60 {
+		return fmt.Errorf("editing.delete_undo_seconds: %d not in [1,60]", c.Editing.DeleteUndoSeconds)
 	}
 	return nil
 }

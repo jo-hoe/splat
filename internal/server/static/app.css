@@ -209,7 +209,18 @@ section#strip {
 .toast-success { border-left-color: #2ecc71; }
 .toast-error   { border-left-color: #e74c3c; }
 .toast-undo    { border-left-color: #f39c12; }
-.toast button  { margin: 0; padding: 0.1rem 0.4rem; font-size: 0.78rem; }
+.toast-msg     { flex: 1 1 auto; }
+.toast button  { margin: 0; padding: 0.1rem 0.4rem; font-size: 0.78rem; flex-shrink: 0; }
+.toast-undo-btn {
+  background: var(--pico-primary);
+  color: var(--pico-primary-inverse);
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+.toast-close   { opacity: 0.5; }
+.toast-close:hover { opacity: 1; }
 
 /* ── Status / error fragments ────────────────────────────── */
 .error {

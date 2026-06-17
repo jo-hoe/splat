@@ -25,6 +25,10 @@
     document.querySelector('meta[name=splat-prefetch-count]')?.content || '5',
     10
   );
+  const deleteUndoMs = parseInt(
+    document.querySelector('meta[name=splat-delete-undo-seconds]')?.content || '5',
+    10
+  ) * 1000;
 
   /* ── splat namespace ─────────────────────────────────── */
   const splat = {
@@ -151,6 +155,11 @@
   }
 
   /* ── Save (crop) ─────────────────────────────────────── */
+  // savePending is set before the Save POST and cleared once we've advanced.
+  // Rotate/flip use their own htmx posts and never set this flag, so they
+  // do not trigger auto-advance.
+  let savePending = false;
+
   function initSaveButton() {
     const btn = document.getElementById('save-btn');
     if (!btn) return;
@@ -166,17 +175,32 @@
     document.getElementById('apply-y').value = Math.max(0, data.y);
     document.getElementById('apply-w').value = Math.max(1, data.width);
     document.getElementById('apply-h').value = Math.max(1, data.height);
+    savePending = true;
     // Submit via htmx programmatically.
     window.htmx.trigger(form, 'submit');
   }
 
   /* ── Auto-advance after save ─────────────────────────── */
-  // Called when htmx swaps in a success fragment for #editor.
-  // The success fragment has data-target; we advance to the next thumb.
+  // Only advances when the Save button triggered the POST (savePending=true).
+  // Rotate/flip share the same success fragment but must not advance.
   function onSaveSuccess() {
     const pane = document.querySelector('#editor .success[data-target]');
     if (!pane) return;
+    if (!savePending) return;
+    savePending = false;
+    const savedTarget = pane.dataset.target || '';
     advanceToNextThumb();
+    spawnUndoToast(
+      'Saved ' + savedTarget.split('/').pop(),
+      deleteUndoMs,
+      () => { /* nothing to do on expire for saves */ },
+      () => {
+        // Undo: go back to the saved image in the editor.
+        if (!savedTarget) return;
+        const thumb = document.querySelector(`#strip .thumb[data-key="${CSS.escape(savedTarget)}"]`);
+        if (thumb) { thumb.click(); thumb.scrollIntoView({ inline: 'center', block: 'nearest' }); }
+      }
+    );
   }
 
   function advanceToNextThumb() {
@@ -229,48 +253,97 @@
   }
 
   function scheduleDelete(key, keyURL) {
-    const toast = document.createElement('div');
-    toast.className = 'toast toast-undo';
-    toast.innerHTML = `<span>Deleting <code></code>…</span>`;
-    toast.querySelector('code').textContent = key;
-    const undo = document.createElement('button');
-    undo.type = 'button';
-    undo.textContent = 'Undo';
-    toast.appendChild(undo);
-    document.getElementById('toasts').appendChild(toast);
+    // Immediately advance to next image and remove the thumb from the strip
+    // so the user can keep working. The actual DELETE fires after the undo
+    // window expires. Closing the tab cancels the delete.
+    const thumb = document.querySelector(`#strip .thumb[data-key="${CSS.escape(key)}"]`);
+    advanceToNextThumb();
+    if (thumb) thumb.remove();
 
-    const timer = setTimeout(() => {
-      toast.remove();
-      fetch('/image/' + keyURL, { method: 'DELETE' })
-        .then((res) => {
-          if (res.ok) {
-            spawnToast('Deleted ' + key.split('/').pop(), 'success');
-            const editor = document.getElementById('editor');
-            if (editor) editor.innerHTML = '<p class="placeholder">Click an image below to edit.</p>';
-            const strip = document.getElementById('strip');
-            if (strip && window.htmx) window.htmx.trigger(strip, 'load');
-          } else {
-            spawnToast('Delete failed: ' + res.status, 'error');
-          }
-        })
-        .catch((err) => spawnToast('Delete failed: ' + err.message, 'error'));
-    }, 5000);
+    // Clear the editor pane so the deleted image is no longer shown.
+    const editor = document.getElementById('editor');
+    if (editor && !document.getElementById('editor-pane')) {
+      editor.innerHTML = '<p class="placeholder">Click an image below to edit.</p>';
+    }
 
-    undo.addEventListener('click', () => { clearTimeout(timer); toast.remove(); });
+    spawnUndoToast(
+      'Deleted ' + key.split('/').pop(),
+      deleteUndoMs,
+      () => {
+        // Timer expired — execute the delete.
+        fetch('/image/' + keyURL, { method: 'DELETE' })
+          .then((res) => {
+            if (!res.ok) spawnToast('Delete failed: ' + res.status, 'error');
+          })
+          .catch((err) => spawnToast('Delete failed: ' + err.message, 'error'));
+      },
+      () => {
+        // Undo clicked — put the thumb back by reloading the strip.
+        const strip = document.getElementById('strip');
+        if (strip && window.htmx) window.htmx.trigger(strip, 'load');
+      }
+    );
   }
 
   /* ── Toasts ──────────────────────────────────────────── */
+  // spawnToast shows a plain auto-dismissing notification.
   function spawnToast(message, kind) {
     const el = document.createElement('div');
     el.className = 'toast toast-' + (kind || 'success');
-    el.textContent = message;
+    const msg = document.createElement('span');
+    msg.textContent = message;
+    el.appendChild(msg);
     const close = document.createElement('button');
     close.type = 'button';
+    close.className = 'toast-close';
     close.textContent = '×';
     close.addEventListener('click', () => el.remove());
     el.appendChild(close);
     document.getElementById('toasts').appendChild(el);
     setTimeout(() => el.remove(), 5000);
+  }
+
+  // spawnUndoToast shows a countdown notification with an Undo button
+  // embedded inside the toast. onExpire fires when the timer runs out;
+  // onUndo fires if the user clicks Undo (timer is cancelled).
+  function spawnUndoToast(message, durationMs, onExpire, onUndo) {
+    const el = document.createElement('div');
+    el.className = 'toast toast-undo';
+
+    const msg = document.createElement('span');
+    msg.className = 'toast-msg';
+    msg.textContent = message;
+    el.appendChild(msg);
+
+    const undo = document.createElement('button');
+    undo.type = 'button';
+    undo.className = 'toast-undo-btn';
+    undo.textContent = 'Undo';
+    el.appendChild(undo);
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'toast-close';
+    close.textContent = '×';
+    el.appendChild(close);
+
+    document.getElementById('toasts').appendChild(el);
+
+    const timer = setTimeout(() => {
+      el.remove();
+      onExpire();
+    }, durationMs);
+
+    undo.addEventListener('click', () => {
+      clearTimeout(timer);
+      el.remove();
+      if (onUndo) onUndo();
+    });
+    close.addEventListener('click', () => {
+      clearTimeout(timer);
+      el.remove();
+      if (onUndo) onUndo();
+    });
   }
 
   function initToasts() {
