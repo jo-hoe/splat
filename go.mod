@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.25
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.24
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.104.0
-	github.com/aws/smithy-go v1.27.2
+	github.com/aws/smithy-go v1.27.3
 	golang.org/x/image v0.42.0
 	gopkg.in/yaml.v3 v3.0.1
 )
