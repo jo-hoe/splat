@@ -33,7 +33,14 @@ Thumbs.db
 
 # Go test
 *.test
+!Dockerfile.test
 *.out
 coverage.txt
 coverage.html
 /photos/
+config.local-test.yaml
+
+# e2e (Playwright)
+test/e2e/node_modules/
+test/e2e/playwright-report/
+test/e2e/test-results/

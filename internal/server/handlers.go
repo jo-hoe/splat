@@ -17,10 +17,11 @@ import (
 	"github.com/jo-hoe/splat/internal/source"
 )
 
-// thumbCacheEtag is the constant etag passed to the thumbnail cache for v1.
-// The cache is keyed per-source-key without invalidation; users clear the
-// cache directory to refresh stale thumbnails. Documented in README §11.
-const thumbCacheEtag = "v1"
+// thumbCacheVersion bumps the thumbnail cache key whenever the thumbnail
+// rendering logic itself changes (dimensions, format, encoder). It is combined
+// with the source object's ETag so that an in-place edit — which changes the
+// source ETag — invalidates the cached thumbnail automatically.
+const thumbCacheVersion = "v1"
 
 // stripDefaultLimit is the default page size for the strip pagination.
 const stripDefaultLimit = 50
@@ -117,20 +118,32 @@ func (s *Server) handleThumb(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	raw, _, status, err := s.fetchOriginal(r.Context(), key)
+	raw, meta, status, err := s.fetchOriginal(r.Context(), key)
 	if err != nil {
 		http.Error(w, err.Error(), status)
 		return
 	}
-	thumb, err := s.thumbs.Get(r.Context(), key, thumbCacheEtag, func(_ context.Context) (image.Image, error) {
+	// Key the cached thumbnail on the source object's ETag so that an in-place
+	// edit (which changes the ETag) produces a fresh thumbnail instead of
+	// serving the stale cached one.
+	cacheEtag := thumbCacheVersion + "-" + meta.ETag
+	thumb, err := s.thumbs.Get(r.Context(), key, cacheEtag, func(_ context.Context) (image.Image, error) {
 		return s.decodeBytes(key, raw)
 	})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("thumbnail: %v", err), http.StatusInternalServerError)
 		return
 	}
+	// A strong HTTP ETag lets the browser revalidate: after an edit the ETag
+	// changes, so the cached thumbnail in the browser is bypassed too.
+	httpEtag := `"` + cacheEtag + `"`
+	if match := r.Header.Get("If-None-Match"); match != "" && match == httpEtag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
 	w.Header().Set("Content-Type", "image/jpeg")
-	w.Header().Set("Cache-Control", "private, max-age=300")
+	w.Header().Set("ETag", httpEtag)
+	w.Header().Set("Cache-Control", "private, no-cache")
 	_, _ = w.Write(thumb)
 }
 
@@ -341,13 +354,29 @@ func (s *Server) computeTargetKey(ctx context.Context, srcKey, outExt, mode stri
 	if mode == "copy" {
 		return source.NextCopyKey(ctx, srcKey, outExt, s.cfg.Editing.CopySuffix, s.source.Exists)
 	}
-	// inplace
+	// inplace: keep the original key (and therefore the original extension)
+	// unless the output is a genuinely different format. A different *spelling*
+	// of the same format is not a format change — ".jpeg" and ".jpg" are
+	// aliases of one Format, so OutputFor(".jpeg") returns ".jpg", but renaming
+	// photo.jpeg → photo.jpg here would delete the original and leave the strip
+	// thumbnail pointing at a now-missing key (the file "could not be selected
+	// after" an edit). Only rewrite the extension for a real format switch,
+	// e.g. webp → png.
 	currentExt := strings.ToLower(path.Ext(srcKey))
-	if currentExt == outExt {
+	if s.sameFormat(currentExt, outExt) {
 		return srcKey, nil
 	}
 	stem := strings.TrimSuffix(srcKey, path.Ext(srcKey))
 	return stem + outExt, nil
+}
+
+// sameFormat reports whether two extensions resolve to the same registered
+// Format (e.g. ".jpeg" and ".jpg"). Unknown extensions are treated as not the
+// same so the caller falls back to an explicit rename.
+func (s *Server) sameFormat(extA, extB string) bool {
+	fa, okA := s.registry.ByExt(extA)
+	fb, okB := s.registry.ByExt(extB)
+	return okA && okB && fa.Ext == fb.Ext
 }
 
 // maybeDeleteOldKey deletes the original after a successful in-place save

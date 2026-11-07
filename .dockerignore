@@ -15,3 +15,13 @@ tmp/
 *.out
 coverage.txt
 config.yaml
+config.local-test.yaml
+
+# e2e: the Playwright runner image copies only the specific files it needs
+# (package.json, lockfile, config, tests), so these are safe to exclude from
+# all build contexts and keep the app image's build context small.
+test/e2e/node_modules/
+test/e2e/playwright-report/
+test/e2e/test-results/
+docker-compose.test.yaml
+Dockerfile.test

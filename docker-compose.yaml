@@ -5,13 +5,25 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./photos:/data:rw
-      - ./cache:/cache:rw
+      # Source photos (read/write so in-place edits persist). The config's
+      # source.local.root is /data, so mount the directory that holds the
+      # images directly onto /data.
+      - ./photos/data:/data:rw
+      # Thumbnail cache. A *named* volume (not a host bind mount) is used so the
+      # nonroot container user (uid 65532) can write: a fresh named volume
+      # inherits the image's /cache ownership, whereas a host bind mount keeps
+      # the host's ownership and the container process gets EACCES.
+      - splat-cache:/cache:rw
       - ./config.yaml:/etc/splat/config.yaml:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "/usr/local/bin/splat", "healthcheck"]
+      # The entrypoint default CMD already passes --config /etc/splat/config.yaml;
+      # the healthcheck must do the same so it reads the mounted config.
+      test: ["CMD", "/usr/local/bin/splat", "healthcheck", "--config", "/etc/splat/config.yaml"]
       interval: 30s
       timeout: 3s
       retries: 3
       start_period: 5s
+
+volumes:
+  splat-cache:

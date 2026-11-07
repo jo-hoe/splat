@@ -78,7 +78,18 @@
     const img = document.getElementById('crop-target');
     if (!img) return;
     activeImg = img;
-    const ready = () => {
+    // token guards against a stale init: if the user clicks another thumb
+    // (htmx swaps in a new #crop-target) before this image's async init runs,
+    // the token no longer matches the live element and we bail.
+    const token = img;
+
+    const build = () => {
+      if (activeImg !== token || !token.isConnected) return; // superseded
+      img.addEventListener('ready', () => {
+        if (!cropper || activeImg !== token || !token.isConnected) return;
+        applyRatio(splat.getRatio());
+        restoreRatioUI(splat.getRatio());
+      }, { once: true });
       cropper = new Cropper(img, {
         viewMode: 1,
         autoCropArea: 1,
@@ -87,15 +98,18 @@
         movable: false,
         zoomable: false,
       });
-      img.addEventListener('ready', () => {
-        applyRatio(splat.getRatio());
-        restoreRatioUI(splat.getRatio());
-      }, { once: true });
     };
+
+    // Defer one frame so a freshly htmx-swapped editor has laid out before the
+    // cropper is built. NOTE: the "crop box not on the image" bug (the source
+    // <img> staying in document flow and shoving the overlay ~one wrap-height
+    // down) is fixed in CSS — see the `.cropper-wrap:has(.cropper-container)`
+    // rule in app.css — not here, so no geometry re-check/rebuild is needed.
+    const start = () => requestAnimationFrame(build);
     if (img.complete && img.naturalWidth) {
-      ready();
+      start();
     } else {
-      img.addEventListener('load', ready, { once: true });
+      img.addEventListener('load', start, { once: true });
     }
   }
 
@@ -180,15 +194,22 @@
     window.htmx.trigger(form, 'submit');
   }
 
-  /* ── Auto-advance after save ─────────────────────────── */
-  // Only advances when the Save button triggered the POST (savePending=true).
-  // Rotate/flip share the same success fragment but must not advance.
+  /* ── After a successful apply (crop / rotate / flip) ─── */
+  // Every in-place apply returns the success fragment with data-target set to
+  // the edited key. The on-disk image changed, so the strip thumbnail for that
+  // key is now stale and must be refreshed. Only the Save (crop) path, marked
+  // by savePending, auto-advances to the next image.
   function onSaveSuccess() {
     const pane = document.querySelector('#editor .success[data-target]');
     if (!pane) return;
+    const savedTarget = pane.dataset.target || '';
+
+    // Refresh the edited thumbnail for in-place edits. For copy mode the target
+    // is a brand-new key not yet in the strip, so refreshThumb is a no-op there.
+    refreshThumb(savedTarget);
+
     if (!savePending) return;
     savePending = false;
-    const savedTarget = pane.dataset.target || '';
     advanceToNextThumb();
     spawnUndoToast(
       'Saved ' + savedTarget.split('/').pop(),
@@ -198,9 +219,21 @@
         // Undo: go back to the saved image in the editor.
         if (!savedTarget) return;
         const thumb = document.querySelector(`#strip .thumb[data-key="${CSS.escape(savedTarget)}"]`);
-        if (thumb) { thumb.click(); thumb.scrollIntoView({ inline: 'center', block: 'nearest' }); }
+        if (thumb) activateThumb(thumb);
       }
     );
+  }
+
+  // refreshThumb forces the strip <img> for a key to re-request its thumbnail.
+  // The thumb endpoint sends ETag + no-cache, so re-assigning src triggers a
+  // revalidation that returns the freshly rendered image after an edit.
+  function refreshThumb(key) {
+    if (!key) return;
+    const thumb = document.querySelector(`#strip .thumb[data-key="${CSS.escape(key)}"]`);
+    const img = thumb?.querySelector('img');
+    if (!img) return;
+    const base = img.getAttribute('src').split('?')[0];
+    img.setAttribute('src', base + '?t=' + Date.now());
   }
 
   function advanceToNextThumb() {
@@ -208,10 +241,7 @@
     if (!thumbs.length) return;
     const current = thumbs.findIndex((t) => t.classList.contains('active'));
     const next = current >= 0 && current + 1 < thumbs.length ? thumbs[current + 1] : null;
-    if (next) {
-      next.click();
-      next.scrollIntoView({ inline: 'center', block: 'nearest' });
-    }
+    if (next) activateThumb(next);
   }
 
   /* ── Prefetch ─────────────────────────────────────────── */
@@ -373,7 +403,7 @@
     const cur = activeThumbIndex(thumbs);
     const next = Math.max(0, Math.min(thumbs.length - 1, (cur < 0 ? 0 : cur + delta)));
     const t = thumbs[next];
-    if (t) { t.click(); t.scrollIntoView({ inline: 'center', block: 'nearest' }); }
+    if (t) activateThumb(t);
   }
 
   function initKeyboard() {
@@ -406,12 +436,50 @@
   }
 
   /* ── Thumb click wiring ───────────────────────────────── */
-  // Mark the clicked thumb active and kick off prefetch.
+  // Mark the given thumb active, kick off prefetch, and move DOM focus to it.
+  // The .active class (visual), DOM focus (keyboard/scroll anchor), and the
+  // editor pane's data-key must all point at the same thumb; this is the one
+  // place that keeps them in sync.
+  function setActiveClass(thumb) {
+    document.querySelectorAll('#strip .thumb.active').forEach((t) => t.classList.remove('active'));
+    thumb.classList.add('active');
+  }
+
+  // activateThumb drives selection programmatically (keyboard nav, auto-advance,
+  // undo). A programmatic element.click() does NOT move DOM focus, so we focus
+  // explicitly — otherwise focus stays orphaned on the last mouse-clicked thumb.
+  // The click() fires onThumbClick (which sets .active + prefetches) and triggers
+  // the htmx hx-get that swaps the editor.
+  function activateThumb(thumb) {
+    if (!thumb) return;
+    thumb.focus();
+    thumb.scrollIntoView({ inline: 'center', block: 'nearest' });
+    thumb.click();
+  }
+
+  // onThumbClick handles real user clicks. The browser already moved focus to
+  // the thumb, so we only sync the .active class and prefetch.
   function onThumbClick(e) {
     const thumb = e.currentTarget;
-    document.querySelectorAll('#strip .thumb').forEach((t) => t.classList.remove('active'));
-    thumb.classList.add('active');
+    setActiveClass(thumb);
     prefetchAfterThumb(thumb);
+  }
+
+  // After a strip reload (undo, lazy "revealed" load) the server re-renders the
+  // thumbs with no .active class and no focus, so the previously selected thumb
+  // is destroyed and focus falls back to <body>. Re-apply both from the editor
+  // pane's data-key, which survives the reload.
+  function syncActiveThumb() {
+    const key = document.getElementById('editor-pane')?.dataset.key;
+    if (!key) return;
+    const thumb = document.querySelector(`#strip .thumb[data-key="${CSS.escape(key)}"]`);
+    if (!thumb) return;
+    setActiveClass(thumb);
+    // Only restore focus if it was lost to <body> during the swap, so we don't
+    // steal focus from an input the user may be typing in.
+    if (document.activeElement === document.body || document.activeElement === null) {
+      thumb.focus();
+    }
   }
 
   function attachThumbListeners() {
@@ -421,6 +489,7 @@
       t.dataset.splatBound = '1';
       t.addEventListener('click', onThumbClick);
     });
+    syncActiveThumb();
   }
 
   /* ── Editor lifecycle ─────────────────────────────────── */

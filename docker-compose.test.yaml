@@ -1,0 +1,46 @@
+# End-to-end regression harness: runs the real splat app in one container and a
+# Playwright browser runner in another. The runner waits for the app to report
+# healthy, then drives it. Usage:
+#
+#   docker compose -f docker-compose.test.yaml up --build \
+#       --abort-on-container-exit --exit-code-from e2e
+#
+# (wrapped as `make test-e2e`).
+services:
+  # Seed a writable /data volume from the committed, read-only fixtures. The
+  # in-place-edit regression test saves a crop back to the source, so /data must
+  # be writable — but we must NOT mutate the committed fixtures on the host.
+  # Copying them into a named volume (owned by the app's nonroot uid 65532)
+  # keeps the fixtures pristine across runs while allowing writes.
+  seed:
+    image: busybox:1.36
+    volumes:
+      - ./test/e2e/fixtures/photos:/src:ro
+      - splat-e2e-data:/dst:rw
+    command: sh -c "cp -f /src/* /dst/ && chown -R 65532:65532 /dst && ls -la /dst"
+
+  splat:
+    build:
+      context: .
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    volumes:
+      - splat-e2e-data:/data:rw
+      - splat-e2e-cache:/cache:rw
+      - ./test/e2e/config.e2e.yaml:/etc/splat/config.yaml:ro
+    # Healthcheck inherited from the image (splat healthcheck → /healthz).
+
+  e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    depends_on:
+      splat:
+        condition: service_healthy
+    environment:
+      SPLAT_BASE_URL: http://splat:8080
+
+volumes:
+  splat-e2e-data:
+  splat-e2e-cache:

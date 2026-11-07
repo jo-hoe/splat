@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"io"
 	"log/slog"
@@ -92,6 +93,26 @@ func writePNG(t *testing.T, path string, w, h int) {
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		t.Fatalf("encode png: %v", err)
+	}
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+// writeJPEG writes a small JPEG to path. Used to exercise the .jpeg/.jpg
+// alias handling: an in-place save of a .jpeg file must not rename it to .jpg
+// (which would delete the original and leave the strip pointing at a gone key).
+func writeJPEG(t *testing.T, path string, w, h int) {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.SetRGBA(x, y, color.RGBA{R: uint8(x * 32), G: uint8(y * 32), B: 0, A: 255})
+		}
+	}
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 90}); err != nil {
+		t.Fatalf("encode jpeg: %v", err)
 	}
 	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)

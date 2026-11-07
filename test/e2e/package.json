@@ -1,0 +1,11 @@
+{
+  "name": "splat-e2e",
+  "private": true,
+  "description": "End-to-end regression tests for the splat frontend (thumb focus + preview refresh).",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.0"
+  }
+}
