@@ -68,11 +68,10 @@ GO_BUILDFLAGS := -trimpath -ldflags='$(LDFLAGS)'
 # ----------------------------------------------------------------------------
 # Phony declaration (every target here has no on-disk artifact tracked by make).
 
-.PHONY: help build run test test-short cover cover-html vet lint fmt tidy clean \
-        docker-build docker-run ci tools
+include help.mk
 
-help: ## Print this help.
-	@awk 'BEGIN { FS = ":.*##"; printf "Targets:\n" } /^[a-zA-Z_-]+:.*##/ { printf "  %-14s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+.PHONY: build run test test-short cover cover-html vet lint fmt tidy clean \
+        docker-build docker-run ci tools
 
 # ----------------------------------------------------------------------------
 # Build & run.
@@ -144,7 +143,7 @@ ci: vet test lint ## Same checks CI runs (vet + race tests + lint)
 docker-build: ## Build the production container image
 	docker build -t $(DOCKER_IMAGE) .
 
-docker-run: ## Run the container with the documented mounts
+docker-run: docker-build ## Run the container with the documented mounts
 	$(MKDIR_P) $(PHOTOS_DIR) $(CACHE_DIR)
 	docker run --rm -p 8080:8080 -v "$(CURDIR_FWD)/$(PHOTOS_DIR):/data:rw" -v "$(CURDIR_FWD)/$(CACHE_DIR):/cache:rw" -v "$(CURDIR_FWD)/$(CONFIG):/etc/splat/config.yaml:ro" $(DOCKER_IMAGE)
 
