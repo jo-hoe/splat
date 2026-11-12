@@ -1,0 +1,18 @@
+# syntax=docker/dockerfile:1.7
+# Playwright e2e runner. The browsers + system libraries are preinstalled in the
+# official image, so no `playwright install-deps` is needed. The splat app runs
+# as a sibling compose service (see docker-compose.test.yaml); this container
+# only drives a browser against it.
+FROM mcr.microsoft.com/playwright:v1.56.0-jammy
+
+WORKDIR /e2e
+
+# Install JS deps from the committed lockfile (reproducible).
+COPY test/e2e/package.json test/e2e/package-lock.json ./
+RUN npm ci
+
+# Test sources.
+COPY test/e2e/playwright.config.ts ./
+COPY test/e2e/tests ./tests
+
+ENTRYPOINT ["npx", "playwright", "test"]

@@ -113,6 +113,16 @@ main#editor .placeholder {
   max-width: 100%;
   max-height: 100%;
 }
+/* Cropper.js occasionally fails to hide the source <img#crop-target> when the
+   image is already decoded (cached) at construction time, leaving it in normal
+   document flow above the (position:relative) .cropper-container and pushing
+   the crop overlay down by the img's own height — ~one wrap-height, so the crop
+   box floats off the photo ("selection not even on the picture"). Whenever a
+   cropper exists in the wrap, force the raw source img out of flow ourselves,
+   independent of Cropper's own cropper-hidden class toggling. */
+.cropper-wrap:has(.cropper-container) > img#crop-target {
+  display: none !important;
+}
 
 /* Ratio toolbar at the bottom */
 .editor-toolbar {

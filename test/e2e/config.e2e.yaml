@@ -1,0 +1,19 @@
+server:
+  port: 8080
+  shutdown_timeout: 10s
+
+source:
+  type: local
+  local:
+    root: /data
+
+editing:
+  copy_suffix: -edited
+  jpeg_quality: 90
+  prefetch_count: 5
+  delete_undo_seconds: 2
+
+thumbnails:
+  cache_dir: /cache
+  height_px: 200
+  cache_max_bytes: 1073741824

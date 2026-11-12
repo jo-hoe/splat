@@ -129,6 +129,88 @@ func TestThumb(t *testing.T) {
 	}
 }
 
+// TestThumbETagRevalidation verifies the thumbnail endpoint emits an ETag and
+// honors If-None-Match with a 304, so browsers can revalidate cheaply.
+func TestThumbETagRevalidation(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	rr := do(t, srv.Handler(), http.MethodGet, "/thumb/a.png")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+	etag := rr.Header().Get("ETag")
+	if etag == "" {
+		t.Fatal("thumb response missing ETag header")
+	}
+	if cc := rr.Header().Get("Cache-Control"); !strings.Contains(cc, "no-cache") {
+		t.Errorf("Cache-Control = %q, want it to contain no-cache", cc)
+	}
+
+	// A conditional request with the current ETag must return 304 Not Modified.
+	rr2 := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/thumb/a.png", nil)
+	req.Header.Set("If-None-Match", etag)
+	srv.Handler().ServeHTTP(rr2, req)
+	if rr2.Code != http.StatusNotModified {
+		t.Fatalf("conditional status = %d, want 304", rr2.Code)
+	}
+}
+
+// TestThumbRefreshesAfterInPlaceEdit is the regression test for stale previews:
+// after an in-place edit the source ETag changes, so the thumbnail endpoint must
+// return a new ETag and freshly rendered bytes rather than the cached ones.
+func TestThumbRefreshesAfterInPlaceEdit(t *testing.T) {
+	srv, srcRoot := newTestServer(t)
+	h := srv.Handler()
+
+	// Prime the thumbnail cache and capture the pre-edit ETag + bytes.
+	before := do(t, h, http.MethodGet, "/thumb/a.png")
+	if before.Code != http.StatusOK {
+		t.Fatalf("pre-edit thumb status = %d, want 200", before.Code)
+	}
+	etagBefore := before.Header().Get("ETag")
+	bytesBefore := append([]byte(nil), before.Body.Bytes()...)
+
+	// Apply an in-place crop to a.png. The local source writes new bytes with a
+	// new mtime, which changes its ETag.
+	hash := computeHashOf(t, filepath.Join(srcRoot, "a.png"))
+	applyRR := doForm(t, h, "/apply/a.png", map[string]string{
+		"op":   "crop",
+		"mode": "inplace",
+		"hash": hash,
+		"x":    "0",
+		"y":    "0",
+		"w":    "2",
+		"h":    "2",
+	})
+	if applyRR.Code != http.StatusOK {
+		t.Fatalf("apply status = %d, want 200\nbody=%s", applyRR.Code, applyRR.Body.String())
+	}
+
+	after := do(t, h, http.MethodGet, "/thumb/a.png")
+	if after.Code != http.StatusOK {
+		t.Fatalf("post-edit thumb status = %d, want 200", after.Code)
+	}
+	etagAfter := after.Header().Get("ETag")
+	bytesAfter := after.Body.Bytes()
+
+	if etagAfter == etagBefore {
+		t.Errorf("thumb ETag did not change after in-place edit: %q", etagAfter)
+	}
+	if bytes.Equal(bytesAfter, bytesBefore) {
+		t.Error("thumb bytes unchanged after in-place edit (stale cached thumbnail served)")
+	}
+
+	// The stale pre-edit ETag must no longer validate (no accidental 304).
+	stale := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/thumb/a.png", nil)
+	req.Header.Set("If-None-Match", etagBefore)
+	h.ServeHTTP(stale, req)
+	if stale.Code == http.StatusNotModified {
+		t.Error("pre-edit ETag still returns 304 after edit; browser would keep the stale thumb")
+	}
+}
+
 func TestImage(t *testing.T) {
 	srv, _ := newTestServer(t)
 	rr := do(t, srv.Handler(), http.MethodGet, "/image/a.png")
@@ -299,6 +381,69 @@ func TestApply_Webp_To_Png_Inplace(t *testing.T) {
 	}
 	if _, err := png.Decode(bytes.NewReader(pngBytes)); err != nil {
 		t.Fatalf("decode resulting png: %v", err)
+	}
+}
+
+// TestApply_Jpeg_Inplace_KeepsExtension is a regression test for the bug where
+// cropping a ".jpeg" file in place renamed it to ".jpg" and deleted the
+// original. Because ".jpeg" is a registry *alias* of the ".jpg" Format,
+// OutputFor(".jpeg") returns the canonical ".jpg", so computeTargetKey saw an
+// "extension change" and (1) wrote a NEW ".jpg" file and (2) deleted the source
+// ".jpeg". The strip thumbnail still carried the ".jpeg" key, so re-selecting
+// the just-edited image 404'd: "it was in fact edited but could not be selected
+// after."
+//
+// Correct behaviour: an in-place save of a .jpeg stays .jpeg (same underlying
+// format, no rename, original preserved).
+func TestApply_Jpeg_Inplace_KeepsExtension(t *testing.T) {
+	srv, srcRoot := newTestServer(t)
+
+	jpegPath := filepath.Join(srcRoot, "photo.jpeg")
+	writeJPEG(t, jpegPath, 4, 4)
+	hash := computeHashOf(t, jpegPath)
+
+	form := map[string]string{
+		"op":   "crop",
+		"mode": "inplace",
+		"hash": hash,
+		"x":    "0",
+		"y":    "0",
+		"w":    "2",
+		"h":    "2",
+	}
+	rr := doForm(t, srv.Handler(), "/apply/photo.jpeg", form)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rr.Code, rr.Body.String())
+	}
+
+	// The original .jpeg must still exist (not renamed/deleted).
+	if _, err := os.Stat(jpegPath); err != nil {
+		t.Fatalf("expected %s to still exist after in-place crop: %v", jpegPath, err)
+	}
+	// No sibling .jpg must have been created.
+	if _, err := os.Stat(filepath.Join(srcRoot, "photo.jpg")); !os.IsNotExist(err) {
+		t.Fatalf("expected no photo.jpg to be created, stat err = %v", err)
+	}
+	// The success fragment's target must be the original .jpeg key so the strip
+	// thumbnail still resolves (the whole point: re-selecting it must not 404).
+	if !strings.Contains(rr.Body.String(), "photo.jpeg") {
+		t.Errorf("success fragment target is not photo.jpeg\nbody=%s", rr.Body.String())
+	}
+	if strings.Contains(rr.Body.String(), "photo.jpg\"") {
+		t.Errorf("success fragment unexpectedly references photo.jpg\nbody=%s", rr.Body.String())
+	}
+
+	// The edited file must decode and be cropped to 2x2.
+	newBytes, err := os.ReadFile(jpegPath)
+	if err != nil {
+		t.Fatalf("read post-apply: %v", err)
+	}
+	img, err := jpeg.Decode(bytes.NewReader(newBytes))
+	if err != nil {
+		t.Fatalf("decode post-apply jpeg: %v", err)
+	}
+	if img.Bounds().Dx() != 2 || img.Bounds().Dy() != 2 {
+		t.Errorf("cropped size = %dx%d, want 2x2", img.Bounds().Dx(), img.Bounds().Dy())
 	}
 }
 

@@ -70,7 +70,7 @@ GO_BUILDFLAGS := -trimpath -ldflags='$(LDFLAGS)'
 
 include help.mk
 
-.PHONY: build run test test-short cover cover-html vet lint fmt tidy clean \
+.PHONY: build run test test-short test-e2e cover cover-html vet lint fmt tidy clean \
         docker-build docker-run ci tools
 
 # ----------------------------------------------------------------------------
@@ -146,6 +146,10 @@ docker-build: ## Build the production container image
 docker-run: docker-build ## Run the container with the documented mounts
 	$(MKDIR_P) $(PHOTOS_DIR) $(CACHE_DIR)
 	docker run --rm -p 8080:8080 -v "$(CURDIR_FWD)/$(PHOTOS_DIR):/data:rw" -v "$(CURDIR_FWD)/$(CACHE_DIR):/cache:rw" -v "$(CURDIR_FWD)/$(CONFIG):/etc/splat/config.yaml:ro" $(DOCKER_IMAGE)
+
+test-e2e: ## Run the Dockerized Playwright e2e suite (app + browser in compose)
+	docker compose -f docker-compose.test.yaml up --build --abort-on-container-exit --exit-code-from e2e
+	docker compose -f docker-compose.test.yaml down -v
 
 # ----------------------------------------------------------------------------
 # Cleanup.
